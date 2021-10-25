@@ -22,38 +22,39 @@ func NewLRUCache(cap int) *LRUCache {
 	}
 }
 
-func (l *LRUCache) Get(key string) (interface{}, error) {
-	dataStore := *l.cache
-	data, ok := dataStore[key]
+func (l *LRUCache) Get(key string) (interface{}, bool) {
+	store := *l.cache
+	node, ok := store[key]
 	if ok {
-		l.log.DeleteNode(data)
-		l.log.SetListHead(data)
-		return data.Value, nil
+		/* bump key to top of list */
+		l.log.DeleteNode(node)
+		l.log.SetListHead(node)
+
+		/* return data held by the node */
+		return node.Value, ok
 	}
-	return nil, errors.New("failed to get item from store")
+	return nil, false
 }
 
 func (l *LRUCache) Set(key string, data interface{}) error {
-	dataStore := *l.cache
-	_, prs := dataStore[key]
+	store := *l.cache
+	_, prs := store[key]
 	node := &dbllinkedlist.Node{Key: key, Value: data}
 	if l.held < l.capacity {
-		dataStore[key] = node
+		store[key] = node
 		l.log.SetListHead(node)
 		l.held++
 		return nil
 	} else if l.held == l.capacity && prs {
-		dataStore[key] = node
+		store[key] = node
 		l.log.DeleteNode(node)
 		l.log.SetListHead(node)
 		return nil
 	} else if l.held == l.capacity && !prs {
-		dataStore[key] = node
-		keyToRem := l.log.Tail.Key
-		delete(dataStore, keyToRem)
+		store[key] = node
+		delete(store, l.log.Tail.Key)
 		l.log.DeleteListTail()
 		l.log.SetListHead(node)
-		l.held--
 		return nil
 	}
 	return errors.New("improper cache state")
